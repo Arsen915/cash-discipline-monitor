@@ -1,0 +1,157 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-ink-50 text-ink-900;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  ::selection {
+    @apply bg-brand-100 text-ink-950;
+  }
+}
+
+@layer components {
+  /* ---- Поверхности ---- */
+  .card {
+    @apply rounded-panel border border-ink-200 bg-white shadow-panel;
+  }
+  .panel-inset {
+    @apply rounded-control border border-ink-200 bg-ink-50;
+  }
+
+  /* ---- Типографика ---- */
+  .page-title {
+    @apply text-2xl font-semibold tracking-tight text-ink-950;
+  }
+  .section-title {
+    @apply text-base font-semibold text-ink-950;
+  }
+  .eyebrow {
+    @apply text-2xs font-semibold uppercase tracking-[0.06em] text-ink-500;
+  }
+  .num {
+    @apply tabular-nums;
+  }
+  .link {
+    @apply rounded-sm font-medium text-brand-700 underline-offset-2 hover:text-brand-800 hover:underline
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-1;
+  }
+
+  /* ---- Кнопки: высота 40px, радиус 6px ---- */
+  .btn {
+    @apply inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-control px-4 text-sm font-semibold
+      transition-colors duration-150
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2
+      disabled:cursor-not-allowed disabled:opacity-45;
+  }
+  .btn-primary {
+    @apply btn bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800 disabled:hover:bg-brand-600;
+  }
+  .btn-secondary {
+    @apply btn border border-ink-300 bg-white text-ink-800 hover:border-ink-400 hover:bg-ink-50 active:bg-ink-100;
+  }
+  .btn-ghost {
+    @apply btn px-3 text-ink-700 hover:bg-ink-100 active:bg-ink-200;
+  }
+
+  /* ---- Поля ввода ---- */
+  .input {
+    @apply block min-h-10 w-full rounded-control border border-ink-300 bg-white px-3 py-2 text-sm text-ink-900
+      transition-colors duration-150 placeholder:text-ink-400 hover:border-ink-400
+      focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500/25;
+  }
+  .field-label {
+    @apply block text-sm font-medium text-ink-800;
+  }
+  .field-hint {
+    @apply text-xs text-ink-500;
+  }
+
+  /* ---- Бейджи и статусы ---- */
+  .badge {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium ring-1 ring-inset;
+  }
+  .badge-neutral {
+    @apply badge bg-ink-100 text-ink-700 ring-ink-200;
+  }
+
+  /* ---- Уведомления ---- */
+  .notice {
+    @apply flex gap-3 rounded-control border px-4 py-3 text-sm;
+  }
+  .notice-danger {
+    @apply notice border-danger-200 bg-danger-50 text-danger-700;
+  }
+  .notice-neutral {
+    @apply notice border-ink-200 bg-ink-50 text-ink-700;
+  }
+
+  /* ---- Решение проверяющего по признаку (сегментированный выбор) ---- */
+  .decision {
+    @apply inline-flex h-9 items-center rounded-control border border-ink-300 bg-white px-3 text-sm font-medium text-ink-700
+      transition-colors duration-150 hover:border-ink-400 hover:bg-ink-50
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-1;
+  }
+  .decision-confirmed.is-active {
+    @apply border-danger-600 bg-danger-600 text-white hover:border-danger-700 hover:bg-danger-700;
+  }
+  .decision-rejected.is-active {
+    @apply border-brand-600 bg-brand-600 text-white hover:border-brand-700 hover:bg-brand-700;
+  }
+  .decision-needs_info.is-active {
+    @apply border-ink-800 bg-ink-800 text-white hover:border-ink-900 hover:bg-ink-900;
+  }
+  .status-pill {
+    @apply badge;
+  }
+  .status-confirmed {
+    @apply bg-danger-50 text-danger-700 ring-danger-200;
+  }
+  .status-rejected {
+    @apply bg-success-50 text-success-700 ring-success-200;
+  }
+  .status-needs_info {
+    @apply bg-ink-100 text-ink-700 ring-ink-300;
+  }
+}
+
+@media print {
+  body {
+    background: white;
+  }
+  .app-chrome {
+    display: none !important;
+  }
+  .card {
+    box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.progress-stripes {
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.14) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.14) 50%,
+    rgba(255, 255, 255, 0.14) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 40px 40px;
+}

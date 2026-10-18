@@ -1,0 +1,33 @@
+services:
+  backend:
+    build: ./backend
+    environment:
+      API_KEY: ${API_KEY:?Задайте API_KEY в файле .env}
+      MODEL_PATH: /app/models/${MODEL_FILE:-yolox_tiny.onnx}
+      MAX_CONCURRENT_JOBS: ${MAX_CONCURRENT_JOBS:-2}
+      ANALYSIS_FPS: ${ANALYSIS_FPS:-3}
+      OBJECT_ZOOM: ${OBJECT_ZOOM:-true}
+      PROCESSING_BUDGET_SEC: ${PROCESSING_BUDGET_SEC:-150}
+      ZONES_FILE: ${ZONES_FILE:-}
+      RULES_FILE: ${RULES_FILE:-}
+      KEEP_UPLOADS: "false"
+      JOB_TTL_HOURS: ${JOB_TTL_HOURS:-24}
+    volumes:
+      - backend-data:/data
+      - ./backend/config:/app/config:ro
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_DEFAULT_API_KEY: ${UI_PREFILL_API_KEY:-}
+    ports:
+      - "${PUBLIC_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  backend-data:

@@ -1,0 +1,12 @@
+{
+  "abandon_min_sec": 3.0,
+  "unattended_min_sec": 6.0,
+  "intrusion_min_sec": 2.0,
+  "crowd_enabled": true,
+  "crowd_min_sec": 8.0,
+  "phone_min_hits": 3,
+  "phone_min_peak_conf": 0.4,
+  "bag_min_sec": 6.0,
+  "obstruction_min_sec": 1.5,
+  "min_confidence": 0.5
+}
