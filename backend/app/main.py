@@ -17,6 +17,7 @@ from .jobs import JobManager, JobStore
 from .pipeline.analyzer import VideoAnalyzer
 from .pipeline.detector import create_detector
 from .pipeline.rule_config import load_rule_config
+from .pipeline.rules import default_rules, overhead_rules
 
 logger = logging.getLogger("app")
 
@@ -43,6 +44,7 @@ def build_analyzer(settings: Settings) -> VideoAnalyzer:
         evidence_quality=settings.evidence_jpeg_quality,
         evidence_annotate=settings.evidence_annotate,
         object_zoom=settings.object_zoom,
+        rules=overhead_rules() if settings.ruleset == "overhead" else default_rules(),
     )
 
 

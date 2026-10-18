@@ -9,6 +9,7 @@ import numpy as np
 
 from app.pipeline.analyzer import VideoAnalyzer
 from app.pipeline.rule_config import RuleConfig
+from app.pipeline.rules import overhead_rules
 
 from .conftest import CASHIER_BOX, CLIENT_BOX, background
 
@@ -36,7 +37,7 @@ def render(path: Path, duration: float, items) -> Path:
 
 
 def analyze(path: Path) -> dict[str, list[dict]]:
-    result = VideoAnalyzer(_detector(), RuleConfig(), analysis_fps=3.0).analyze(path)
+    result = VideoAnalyzer(_detector(), RuleConfig(), analysis_fps=3.0, rules=overhead_rules()).analyze(path)
     grouped: dict[str, list[dict]] = {}
     for violation in result["violations"]:
         grouped.setdefault(violation["code"], []).append(violation)

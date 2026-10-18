@@ -21,7 +21,7 @@ SIZE = (640, 360)
 DURATION = 20.0
 CASHIER_BOX = (280, 40, 360, 140)
 CLIENT_BOX = (280, 200, 360, 300)
-PHONE_BOX = (370, 80, 395, 96)
+PHONE_BOX = (338, 80, 363, 96)
 
 
 def background(seed: int = 7) -> np.ndarray:

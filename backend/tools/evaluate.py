@@ -11,6 +11,9 @@ labels.csv (UTF-8, с заголовком). Одна строка на собы
     video_002.mov,no_violation,
 
 label: violation / нарушение / 1 — нарушение, всё остальное — нет нарушения.
+
+С --cache DIR детекции (самая долгая часть) сохраняются в DIR/<видео>.pkl при первом
+прогоне; повторные прогоны с другими порогами (--rules) занимают секунды.
 """
 
 from __future__ import annotations
@@ -18,6 +21,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import pickle
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -47,12 +51,26 @@ def main() -> None:
     parser.add_argument("--labels", type=Path, required=True)
     parser.add_argument("--out", type=Path, default=Path("eval"))
     parser.add_argument("--tolerance", type=float, default=2.0, help="Допуск по таймкоду, с")
+    parser.add_argument("--cache", type=Path, default=None, help="Каталог кэша детекций")
     add_analyzer_arguments(parser)
     args = parser.parse_args()
 
     labels = load_labels(args.labels)
     analyzer = build_analyzer(args)
     args.out.mkdir(parents=True, exist_ok=True)
+    if args.cache:
+        args.cache.mkdir(parents=True, exist_ok=True)
+
+    def run(path: Path) -> dict:
+        if args.cache is None:
+            return analyzer.analyze(path)
+        cached = args.cache / f"{path.name}.pkl"
+        if cached.is_file():
+            extraction = pickle.loads(cached.read_bytes())
+        else:
+            extraction = analyzer.extract(path)
+            cached.write_bytes(pickle.dumps(extraction))
+        return analyzer.evaluate(extraction)
 
     rows, tp, fp, tn, fn = [], 0, 0, 0, 0
     timecode_errors, timecode_hits, labelled_events = [], 0, 0
@@ -63,7 +81,7 @@ def main() -> None:
             continue
         started = time.monotonic()
         try:
-            result = analyzer.analyze(path)
+            result = run(path)
         except Exception as exc:  # фиксируем и идём дальше: оценка не должна обрываться
             print(f"[fail] {name}: {exc}")
             rows.append({"file": name, "truth": truth["violation"], "predicted": None, "error": str(exc)})

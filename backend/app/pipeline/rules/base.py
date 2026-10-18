@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from ..records import FrameRecord, FrameState
+from ..room import Room
 from ..rule_config import RuleConfig
 from ..zones import ZoneLayout
 from .catalog import ViolationType
@@ -40,6 +41,7 @@ class RuleContext:
     config: RuleConfig
     duration_sec: float
     step_sec: float
+    room: "Room | None" = None
 
     @property
     def times(self) -> np.ndarray:
@@ -52,6 +54,7 @@ class RuleContext:
 
 class Rule(ABC):
     vtype: ViolationType
+    uses_room: bool = False  # правило опирается на модель помещения (room.py), а не на зоны стойки
 
     @abstractmethod
     def evaluate(self, ctx: RuleContext) -> list[Event]:

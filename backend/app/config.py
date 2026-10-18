@@ -46,6 +46,7 @@ class Settings:
     detector_backend: str
     detector_threads: int
     object_zoom: bool
+    ruleset: str
     max_concurrent_jobs: int
     max_upload_mb: int
     analysis_fps: float
@@ -91,15 +92,16 @@ def load_settings() -> Settings:
     return Settings(
         api_keys=api_keys,
         data_dir=_path("DATA_DIR", str(backend_root / "data")),
-        model_path=_path("MODEL_PATH", str(backend_root / "models" / "yolox_tiny.onnx")),
+        model_path=_path("MODEL_PATH", str(backend_root / "models" / "yolox_s.onnx")),
         detector_backend=(_get("DETECTOR_BACKEND") or "yolox").lower(),
         detector_threads=_int("DETECTOR_THREADS", 0),
         object_zoom=_bool("OBJECT_ZOOM", True),
+        ruleset=(_get("RULESET") or "room").lower(),
         max_concurrent_jobs=max(1, _int("MAX_CONCURRENT_JOBS", min(2, cpu_count))),
         max_upload_mb=_int("MAX_UPLOAD_MB", 500),
-        analysis_fps=_float("ANALYSIS_FPS", 3.0),
+        analysis_fps=_float("ANALYSIS_FPS", 2.5),
         max_analyzed_frames=_int("MAX_ANALYZED_FRAMES", 450),
-        processing_budget_sec=_float("PROCESSING_BUDGET_SEC", 55.0),
+        processing_budget_sec=_float("PROCESSING_BUDGET_SEC", 120.0),
         keep_uploads=_bool("KEEP_UPLOADS", False),
         job_ttl_hours=_float("JOB_TTL_HOURS", 24.0),
         zones_file=_path("ZONES_FILE", None),

@@ -23,6 +23,7 @@ class RuleConfig:
     # Оборудование кассы: принтер детектор часто называет «suitcase», а заодно «microwave»/«tv»;
     # совпадающие с ним «сумки» и «телефоны» отбрасываются
     equipment_labels: tuple[str, ...] = ("tv", "laptop", "keyboard", "microwave", "oven", "toaster")
+    screen_labels: tuple[str, ...] = ("laptop", "tv")      # экран компьютера кассира (проверка блокировки)
 
     # --- зоны (в единицах «масштаба человека» — медианной диагонали бокса) ---
     workplace_radius: float = 1.4
@@ -64,6 +65,34 @@ class RuleConfig:
     fixture_keep_phone_conf: float = 0.7
     fixture_min_frames: int = 15
 
+    # --- модель помещения (RULESET=room; расстояния в ростах кассира) ---
+    room_workplace_radius: float = 0.6
+    room_min_rel_height: float = 0.45
+    room_approach_radius: float = 1.0
+    room_min_track_conf: float = 0.55
+    leave_near_dist: float = 0.35        # ближе — человек на рабочем месте/у кресла
+    leave_away_dist: float = 0.25        # дальше — кассир отошёл от кресла (момент ухода)
+    leave_lookback_sec: float = 8.0
+    leave_min_presence_sec: float = 3.0  # сколько кассир провёл на рабочем месте до ухода
+    leave_gone_sec: float = 1.5          # сколько кассира не должно быть видно (если он вернулся)
+    leave_end_min_sec: float = 0.8       # если ушёл в конце записи
+    leave_flag_unverified: bool = True
+    screen_window_sec: float = 3.0       # «экран во время работы» — первые секунды записи
+    screen_change_min: float = 0.3
+    spot_expand_x: float = 0.6
+    spot_window_sec: float = 8.0
+    spot_settle_sec: float = 1.0
+    spot_min_sec: float = 0.8
+    spot_change_min: float = 0.16
+    phone_min_rel_size: float = 0.15     # сторона бокса телефона в долях роста держащего
+    phone_room_min_peak_conf: float = 0.55
+    bag_static_sec: float = 3.0
+    bag_min_hits: int = 4
+    bag_max_dist: float = 2.0
+    bag_min_mean_conf: float = 0.4
+    crowd_persons: int = 3
+    crowd_room_min_sec: float = 1.5
+
     # --- итог ---
     min_confidence: float = 0.5
     max_events_per_type: int = 5
@@ -71,7 +100,8 @@ class RuleConfig:
 
     @property
     def detector_labels(self) -> tuple[str, ...]:
-        return tuple(dict.fromkeys(("person", *self.phone_labels, *self.bag_labels, *self.equipment_labels)))
+        return tuple(dict.fromkeys(("person", *self.phone_labels, *self.bag_labels, *self.equipment_labels,
+                                    *self.screen_labels)))
 
     @property
     def detector_min_conf(self) -> float:

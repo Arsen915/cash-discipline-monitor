@@ -63,14 +63,19 @@ def _polyline(image: np.ndarray, polygon: np.ndarray | None, scale: float, color
 
 
 def render_evidence(cache: FrameCache, record: FrameRecord, layout: ZoneLayout | None,
-                    highlights: list, caption: str, annotate: bool, quality: int) -> str:
-    """JPEG кадра в base64. При annotate — зоны, люди и выделение объекта нарушения."""
+                    highlights: list, caption: str, annotate: bool, quality: int,
+                    workplace: tuple[tuple[float, float], float] | None = None) -> str:
+    """JPEG кадра в base64. При annotate — рабочее место/зоны, люди и выделение объекта нарушения."""
     if not annotate:
         return base64.b64encode(cache.jpeg(record.index)).decode("ascii")
 
     image = cache.image(record.index)
     scale = cache.scale
-    if layout is not None:
+    if workplace is not None:
+        (cx, cy), radius = workplace
+        cv2.ellipse(image, (int(cx * scale), int(cy * scale)), (int(radius * scale), int(radius * scale * 0.5)),
+                    0, 0, 360, _GREEN, 1, cv2.LINE_AA)
+    elif layout is not None:
         _polyline(image, layout.workplace, scale, _GREEN)
         _polyline(image, layout.client_counter, scale, _BLUE)
     for person in record.persons:

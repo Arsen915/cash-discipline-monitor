@@ -168,14 +168,60 @@ CAMERA_OBSTRUCTION = ViolationType(
     detects="Кадр становится однородным/тёмным или большая его часть закрыта предметом.",
 )
 
+WORKPLACE_LEFT_UNSECURED = ViolationType(
+    code="WORKPLACE_LEFT_UNSECURED",
+    title="Кассир покинул рабочее место, не обеспечив его сохранность",
+    document=CASH_OPERATIONS_RULES,
+    clause="п. 20, п. 22",
+    requirement=(
+        "«Кассовому работнику не допускается покидать рабочее место до окончания обслуживания "
+        "клиента.» Ранее принятые наличные деньги хранятся в специальных устройствах на рабочем "
+        "месте (пересказ п. 20)."
+    ),
+    detects=(
+        "Кассир выходит из помещения, когда у стола остаётся клиент, или оставляет компьютер "
+        "незаблокированным (экран после ухода не меняется)."
+    ),
+)
+
+STORAGE_LEFT_OPEN = ViolationType(
+    code="STORAGE_LEFT_OPEN",
+    title="Сейф (место хранения ценностей) оставлен открытым",
+    document=CASH_OPERATIONS_RULES,
+    clause="п. 20",
+    requirement=(
+        "Наличные деньги хранятся в специальных запираемых устройствах на рабочем месте; "
+        "открытый сейф не обеспечивает их сохранность (пересказ п. 20)."
+    ),
+    detects=(
+        "Кассир работал у сейфа/шкафа и отошёл, а вид этого места остался изменённым "
+        "(дверца открыта) по сравнению с видом до взаимодействия."
+    ),
+)
+
+DOOR_LEFT_OPEN = ViolationType(
+    code="DOOR_LEFT_OPEN",
+    title="Дверь кассового помещения оставлена открытой",
+    document=PREMISES_SECURITY_RULES,
+    clause="п. 8, пп. 1) п. 16",
+    requirement=(
+        "Кассовый узел изолируется от других помещений и имеет один закрывающийся служебный вход; "
+        "каждая касса имеет отдельный вход с закрывающейся на замок дверью (пересказ)."
+    ),
+    detects="Человек прошёл через дверь, и после этого дверь выглядит иначе, чем до прохода (не закрыта).",
+)
+
 CATALOG: tuple[ViolationType, ...] = (
-    WORKPLACE_ABANDONED,
-    WORKPLACE_LEFT,
-    CASH_UNATTENDED,
+    WORKPLACE_LEFT_UNSECURED,
+    STORAGE_LEFT_OPEN,
+    DOOR_LEFT_OPEN,
     UNAUTHORIZED_PERSON,
     MOBILE_PHONE,
     PERSONAL_BELONGINGS,
     CAMERA_OBSTRUCTION,
+    WORKPLACE_ABANDONED,
+    WORKPLACE_LEFT,
+    CASH_UNATTENDED,
 )
 
 

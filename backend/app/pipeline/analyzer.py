@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
@@ -19,11 +20,12 @@ from .evidence import FrameCache, render_evidence
 from .geometry import box_iou
 from .quality import make_thumbnail, measure_quality, obstruction_mask
 from .records import FrameRecord, ObjectObs, PersonObs
+from .room import build_room
 from .rule_config import RuleConfig
 from .rules import Event, Rule, RuleContext, default_rules
 from .scene import build_states
 from .tracker import IoUTracker
-from .video import FrameSampler, VideoError, probe_video
+from .video import FrameSampler, VideoError, VideoMeta, probe_video
 from .zones import ZoneLayout, calibrate_layout, person_scale
 
 logger = logging.getLogger(__name__)
@@ -33,6 +35,19 @@ ProgressCallback = Callable[[float, str], None]
 MAX_SAMPLING_STEP_SEC = 1.5
 MAX_EVIDENCE_FRAMES = 3
 SUPERSEDES_WORKPLACE_LEFT = ("CASH_UNATTENDED", "WORKPLACE_ABANDONED")
+
+
+@dataclass
+class Extraction:
+    """Результат первого прохода: всё, что нужно правилам, без повторного чтения видео."""
+
+    meta: VideoMeta
+    records: list[FrameRecord]
+    cache: FrameCache
+    duration: float
+    step: float
+    frames_decoded: int
+    elapsed: float
 
 
 class VideoAnalyzer:
@@ -61,10 +76,17 @@ class VideoAnalyzer:
         self.evidence_quality = evidence_quality
         self.evidence_annotate = evidence_annotate
         self.rules = rules if rules is not None else default_rules()
+        self.rules_use_room = any(rule.uses_room for rule in self.rules)
 
     # ------------------------------------------------------------------ public
     def analyze(self, path: Path, progress: ProgressCallback | None = None,
                 debug: bool = False) -> dict:
+        report = progress or (lambda fraction, stage: None)
+        extraction = self.extract(path, report)
+        return self.evaluate(extraction, report, debug)
+
+    def extract(self, path: Path, progress: ProgressCallback | None = None) -> Extraction:
+        """Проход 1: декодирование, детекция, трекинг. Результат можно сохранить и переоценивать."""
         report = progress or (lambda fraction, stage: None)
         started = time.monotonic()
         report(0.02, "Чтение метаданных видео")
@@ -127,6 +149,17 @@ class VideoAnalyzer:
         duration = max(sampler.frames_decoded / sampler.fps, records[-1].time_sec)
         times = np.array([r.time_sec for r in records])
         actual_step = float(np.median(np.diff(times))) if len(times) > 1 else step
+        return Extraction(meta=meta, records=records, cache=cache, duration=duration, step=actual_step,
+                          frames_decoded=sampler.frames_decoded, elapsed=time.monotonic() - started)
+
+    def evaluate(self, extraction: Extraction, progress: ProgressCallback | None = None,
+                 debug: bool = False) -> dict:
+        """Проход 2: зоны, правила, кадры-доказательства. Не читает видео заново."""
+        report = progress or (lambda fraction, stage: None)
+        started = time.monotonic() - extraction.elapsed
+        meta, records, cache = extraction.meta, extraction.records, extraction.cache
+        duration, actual_step = extraction.duration, extraction.step
+        cfg = self.config
         width, height = records[0].thumb.shape[1], records[0].thumb.shape[0]
         frame_h, frame_w = meta.height, meta.width
 
@@ -134,7 +167,9 @@ class VideoAnalyzer:
         valid = ~obstruction_mask([r.quality for r in records], cfg.obstruction_cell_fraction)
         layout = self._layout(records, valid, frame_w, frame_h, duration, actual_step)
         states = build_states(records, valid, layout, cfg)
-        ctx = RuleContext(records, states, layout, cfg, duration, actual_step)
+        room = build_room(records, valid, frame_w, frame_h, duration, cfg.room_min_rel_height,
+                          cfg.room_approach_radius, cfg.room_min_track_conf)
+        ctx = RuleContext(records, states, layout, cfg, duration, actual_step, room)
 
         report(0.9, "Проверка правил")
         events: list[Event] = []
@@ -157,13 +192,17 @@ class VideoAnalyzer:
                 "width": frame_w,
                 "height": frame_h,
                 "codec": meta.codec,
-                "frames_total": sampler.frames_decoded,
+                "frames_total": extraction.frames_decoded,
                 "frames_analyzed": len(records),
                 "sampling_step_sec": round(actual_step, 3),
             },
             "analysis": {
                 "detector": self.detector.name,
                 "layout": layout.to_dict() if layout else None,
+                "room": {
+                    "workplace": [round(float(room.anchor[0]) / frame_w, 4), round(float(room.anchor[1]) / frame_h, 4)],
+                    "cashier_height_px": round(room.height, 1),
+                } if room else None,
                 "rules": [rule.vtype.code for rule in self.rules],
                 "events_below_threshold": len(events) - len(accepted),
                 "elapsed_sec": round(time.monotonic() - started, 2),
@@ -259,11 +298,14 @@ class VideoAnalyzer:
                 continue
             seen.add(ref.record_index)
             record = ctx.records[ref.record_index]
+            workplace = None
+            if ctx.room is not None and self.rules_use_room:
+                workplace = (tuple(ctx.room.anchor), self.config.room_workplace_radius * ctx.room.height)
             frames.append({
                 "timestamp_sec": round(record.time_sec, 2),
                 "image_base64": render_evidence(cache, record, ctx.layout, ref.highlights,
                                                 event.vtype.code, self.evidence_annotate,
-                                                self.evidence_quality),
+                                                self.evidence_quality, workplace),
             })
         return {
             "type": event.vtype.title,

@@ -13,6 +13,7 @@ import pytest
 from app.pipeline.analyzer import VideoAnalyzer
 from app.pipeline.detector import YoloxOnnxDetector
 from app.pipeline.rule_config import RuleConfig
+from app.pipeline.rules import overhead_rules
 from app.pipeline.video import FrameSampler, probe_video
 
 from .conftest import DURATION, ColorBlobDetector, background
@@ -42,12 +43,12 @@ def scene_result(scene_video: Path) -> dict:
 def test_verdict_and_types(scene_result: dict):
     assert scene_result["verdict"] == "violation"
     codes = _by_code(scene_result)
-    assert set(codes) == {"WORKPLACE_ABANDONED", "MOBILE_PHONE", "CAMERA_OBSTRUCTION"}, codes.keys()
+    assert set(codes) == {"WORKPLACE_LEFT_UNSECURED", "MOBILE_PHONE", "CAMERA_OBSTRUCTION"}, codes.keys()
     assert scene_result["analysis"]["layout"]["source"] == "auto"
 
 
 @pytest.mark.parametrize("code, expected", [
-    ("WORKPLACE_ABANDONED", 6.0),
+    ("WORKPLACE_LEFT_UNSECURED", 6.0),
     ("MOBILE_PHONE", 13.0),
     ("CAMERA_OBSTRUCTION", 17.0),
 ])
@@ -77,7 +78,8 @@ def test_manual_zones(scene_video: Path, tmp_path: Path):
         "workplace": [[0.3, 0.0], [0.7, 0.0], [0.7, 0.47], [0.3, 0.47]],
         "client_counter": [[0.2, 0.47], [0.8, 0.47], [0.8, 1.0], [0.2, 1.0]],
     }), encoding="utf-8")
-    result = VideoAnalyzer(ColorBlobDetector(), RuleConfig(), zones_file=zones).analyze(scene_video)
+    result = VideoAnalyzer(ColorBlobDetector(), RuleConfig(), zones_file=zones,
+                           rules=overhead_rules()).analyze(scene_video)
     assert result["analysis"]["layout"]["source"] == "manual"
     assert set(_by_code(result)) == {"WORKPLACE_ABANDONED", "MOBILE_PHONE", "CAMERA_OBSTRUCTION"}
 

@@ -24,7 +24,10 @@ COPY config/ config/
 RUN useradd --create-home --uid 10001 appuser && mkdir -p /data && chown appuser /data
 USER appuser
 
-ENV MODEL_PATH=/app/models/yolox_tiny.onnx \
+ENV MODEL_PATH=/app/models/yolox_s.onnx \
+    RULESET=room \
+    ANALYSIS_FPS=2.5 \
+    PROCESSING_BUDGET_SEC=120 \
     DATA_DIR=/data
 
 EXPOSE 8000
