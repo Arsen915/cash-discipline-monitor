@@ -27,7 +27,6 @@ USER appuser
 ENV MODEL_PATH=/app/models/yolox_tiny.onnx \
     DATA_DIR=/data
 
-VOLUME ["/data"]
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \

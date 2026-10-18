@@ -9,7 +9,7 @@ export function isAcceptedVideo(file) {
   return ACCEPTED.some((extension) => name.endsWith(extension));
 }
 
-export default function UploadPanel({ file, onFile, onSubmit, disabled, error }) {
+export default function UploadPanel({ file, onFile, onSubmit, disabled, error, errorTone = 'danger' }) {
   const inputRef = useRef(null);
   const [dragging, setDragging] = useState(false);
 
@@ -91,7 +91,7 @@ export default function UploadPanel({ file, onFile, onSubmit, disabled, error })
       )}
 
       {error && (
-        <p role="alert" className="notice-danger">
+        <p role="alert" className={errorTone === 'neutral' ? 'notice-neutral' : 'notice-danger'}>
           <AlertIcon className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{error}</span>
         </p>

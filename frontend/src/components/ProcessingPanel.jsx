@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { formatDuration } from '../format.js';
-import { CheckIcon, Spinner } from './icons.jsx';
+import { CheckIcon, CloseIcon, Spinner } from './icons.jsx';
 
 const STEPS = [
   { key: 'upload', label: 'Загрузка видео' },
@@ -37,12 +37,13 @@ export default function ProcessingPanel({ phase, uploadProgress, job, startedAt,
           <h2 className="mt-1 truncate text-lg font-semibold text-ink-950">{fileName || 'Видео'}</h2>
         </div>
         <div className="flex shrink-0 items-center gap-3">
-          {uploading && onCancel && (
+          <Spinner className="h-5 w-5 text-brand-600" />
+          {onCancel && (
             <button type="button" className="btn-secondary h-9 px-3" onClick={onCancel}>
-              Отменить
+              <CloseIcon className="h-4 w-4" />
+              {uploading ? 'Отменить загрузку' : 'Отменить анализ'}
             </button>
           )}
-          <Spinner className="h-5 w-5 text-brand-600" />
         </div>
       </div>
 
@@ -67,9 +68,7 @@ export default function ProcessingPanel({ phase, uploadProgress, job, startedAt,
           />
         </div>
         <div className="mt-2 flex flex-wrap justify-between gap-x-4 gap-y-1 text-xs text-ink-500">
-          <span>
-            {job?.queue_position ? `В очереди: ${job.queue_position}-я` : 'Обработка выполняется локально на сервере'}
-          </span>
+          <span>{job?.queue_position ? `В очереди: ${job.queue_position}-я` : ''}</span>
           <span className="num">Прошло: {formatDuration((now - startedAt) / 1000)}</span>
         </div>
 
@@ -106,8 +105,8 @@ export default function ProcessingPanel({ phase, uploadProgress, job, startedAt,
           })}
         </ol>
         <p className="mt-5 text-xs leading-relaxed text-ink-500">
-          Анализ выполняется локально на сервере, без облачных AI-сервисов. Обычно это занимает до нескольких минут;
-          вкладку можно не держать открытой — результат доступен по ссылке с идентификатором задачи.
+          Обычно анализ занимает до минуты. Вкладку можно закрыть — результат откроется по ссылке с идентификатором
+          задачи.
         </p>
       </div>
     </div>

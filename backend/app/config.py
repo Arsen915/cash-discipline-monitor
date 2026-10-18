@@ -99,7 +99,7 @@ def load_settings() -> Settings:
         max_upload_mb=_int("MAX_UPLOAD_MB", 500),
         analysis_fps=_float("ANALYSIS_FPS", 3.0),
         max_analyzed_frames=_int("MAX_ANALYZED_FRAMES", 450),
-        processing_budget_sec=_float("PROCESSING_BUDGET_SEC", 150.0),
+        processing_budget_sec=_float("PROCESSING_BUDGET_SEC", 55.0),
         keep_uploads=_bool("KEEP_UPLOADS", False),
         job_ttl_hours=_float("JOB_TTL_HOURS", 24.0),
         zones_file=_path("ZONES_FILE", None),

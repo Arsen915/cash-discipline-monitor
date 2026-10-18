@@ -8,6 +8,7 @@ import ResultView from './components/ResultView.jsx';
 import ScopeNotice from './components/ScopeNotice.jsx';
 import UploadPanel, { isAcceptedVideo } from './components/UploadPanel.jsx';
 import ViolationTypes from './components/ViolationTypes.jsx';
+import { cacheResult, loadCachedResult } from './resultCache.js';
 import { normalizeJob } from './review.js';
 
 const KEY_STORAGE = 'cash-control.api-key';
@@ -27,14 +28,9 @@ const FAQ_ITEMS = [
       'Основной формат — .mov, но также принимаются .mp4, .m4v, .avi и .mkv. Важно, чтобы файл был видеозаписью с камеры над кассой и не превышал лимит по размеру.',
   },
   {
-    question: 'Нужен ли интернет для анализа?',
+    question: 'Какой максимальный размер файла можно загрузить?',
     answer:
-      'Нет. Анализ выполняется локально на сервере: модель детекции загружается один раз и работает без облачных AI-сервисов. Интернет нужен только для первичного скачивания модели и для доступа к UI, если вы открываете сервис удалённо.',
-  },
-  {
-    question: 'Где хранится API-ключ?',
-    answer:
-      'Ключ хранится в браузере локально, в этом устройстве, и используется только для отправки запросов к API. Его можно сохранить на время сессии или удалить при необходимости.',
+      'По умолчанию — до 500 МБ на один файл (лимит задаётся администратором сервиса в настройке MAX_UPLOAD_MB). Если файл больше, сервис отклонит загрузку с сообщением «Файл слишком большой» — сократите запись или экспортируйте её с меньшим битрейтом. За один раз загружается одна видеозапись.',
   },
   {
     question: 'Этот результат — доказательство или решение?',
@@ -235,6 +231,15 @@ export default function App() {
       setPhase('failed');
     };
 
+    // Готовый результат, сохранённый в этом браузере, — если сервис его уже не отдаёт
+    const fromCache = async () => {
+      const cached = await loadCachedResult(jobId);
+      if (cancelled || !cached) return false;
+      setJob(normalizeJob(cached));
+      setPhase('done');
+      return true;
+    };
+
     const poll = async () => {
       try {
         const raw = await getJob(jobId, apiKey, controller.signal);
@@ -247,6 +252,7 @@ export default function App() {
         const data = normalizeJob(raw);
         setJob(data);
         if (data.status === 'done') {
+          cacheResult(data);
           setPhase('done');
           return;
         }
@@ -257,12 +263,12 @@ export default function App() {
       } catch (pollError) {
         if (cancelled || pollError.name === 'AbortError') return;
         if (pollError.status === 401 || pollError.status === 404) {
-          fail(describe(pollError));
+          if (!(await fromCache()) && !cancelled) fail(describe(pollError));
           return;
         }
         failures += 1;
         if (failures >= MAX_POLL_FAILURES) {
-          fail({ ...describe(pollError), kind: 'poll' });
+          if (!(await fromCache()) && !cancelled) fail({ ...describe(pollError), kind: 'poll' });
           return;
         }
       }
@@ -273,7 +279,10 @@ export default function App() {
       timer = setTimeout(poll, POLL_INTERVAL_MS);
     };
 
-    poll();
+    // Сначала — сохранённый результат: ссылка открывается сразу и без обращения к сервису
+    fromCache().then((found) => {
+      if (!found && !cancelled) poll();
+    });
     return () => {
       cancelled = true;
       controller.abort();
@@ -288,6 +297,16 @@ export default function App() {
     setJobId(null);
     setFile(null);
     setError(null);
+    window.history.replaceState(null, '', window.location.pathname);
+  };
+
+  // Выход из анализа: опрос останавливается, файл остаётся выбранным для повторного запуска.
+  // У сервиса нет метода отмены, поэтому начатая задача доработает на сервере в фоне.
+  const cancelAnalysis = () => {
+    setPhase('idle');
+    setJob(null);
+    setJobId(null);
+    setError({ kind: 'cancelled', message: 'Анализ отменён. Можно выбрать другую запись или запустить анализ снова.' });
     window.history.replaceState(null, '', window.location.pathname);
   };
 
@@ -339,6 +358,7 @@ export default function App() {
                       onSubmit={start}
                       disabled={!apiKey}
                       error={error?.message}
+                      errorTone={error?.kind === 'cancelled' ? 'neutral' : 'danger'}
                     />
                   </div>
                 </section>
@@ -382,7 +402,7 @@ export default function App() {
             job={job}
             startedAt={startedAt}
             fileName={file?.name || job?.filename}
-            onCancel={cancelUpload}
+            onCancel={phase === 'uploading' ? cancelUpload : cancelAnalysis}
           />
         )}
 

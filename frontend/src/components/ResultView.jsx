@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatDuration, formatTimecode, pluralViolations, stripImages } from '../format.js';
+import { downloadProtocolPdf, downloadReportPdf } from '../pdf.js';
 import {
   DECISIONS,
   loadReview,
@@ -11,9 +12,11 @@ import {
   AlertIcon,
   CheckCircleIcon,
   DownloadIcon,
+  ExternalIcon,
   LinkIcon,
   PrintIcon,
   RefreshIcon,
+  Spinner,
 } from './icons.jsx';
 import Lightbox from './Lightbox.jsx';
 import ScopeNotice from './ScopeNotice.jsx';
@@ -148,18 +151,6 @@ function ReviewSummary({ total, review, keys, saved }) {
   );
 }
 
-function downloadBlob(content, name, type) {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = name;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-}
-
 export default function ResultView({ job, videoUrl, onReset }) {
   const videoRef = useRef(null);
   const cardRefs = useRef([]);
@@ -169,7 +160,10 @@ export default function ResultView({ job, videoUrl, onReset }) {
   const [showJson, setShowJson] = useState(false);
   const [review, setReview] = useState(() => loadReview(job.job_id));
   const [saved, setSaved] = useState(true);
-  const [copied, setCopied] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const [showLink, setShowLink] = useState(false);
+  const [exporting, setExporting] = useState(null); // protocol | report
+  const [exportError, setExportError] = useState(null);
 
   const violations = job.violations;
   const keys = useMemo(() => violations.map(violationKey), [violations]);
@@ -210,38 +204,28 @@ export default function ResultView({ job, videoUrl, onReset }) {
     seek(violations[index].timecode_sec);
   };
 
-  const downloadProtocol = () => {
-    const protocol = {
-      document: 'Протокол ручной проверки видеозаписи кассы',
-      notice:
-        'Результат сервиса — подсказка для проверки человеком, а не юридическое или дисциплинарное заключение. ' +
-        'Выводы о данных, которых нет на видео (проводки, сверки), сервисом не делаются.',
-      job_id: job.job_id,
-      filename: job.filename || null,
-      service_verdict: job.verdict,
-      exported_at: new Date().toISOString(),
-      items: violations.map((violation, index) => ({
-        number: index + 1,
-        type: violation.type,
-        code: violation.code || null,
-        timecode_sec: violation.timecode_sec,
-        timecode: formatTimecode(violation.timecode_sec),
-        rule: violation.rule ? `${violation.rule.clause} — ${violation.rule.act}` : null,
-        requires_data_outside_video: outside[index],
-        reviewer_decision: review[keys[index]]?.decision || 'not_reviewed',
-        reviewer_comment: review[keys[index]]?.comment || '',
-      })),
-    };
-    downloadBlob(JSON.stringify(protocol, null, 2), `review_${job.job_id}.json`, 'application/json');
+  const exportPdf = async (kind) => {
+    setExporting(kind);
+    setExportError(null);
+    try {
+      if (kind === 'protocol') await downloadProtocolPdf({ job, review, keys, outside });
+      else await downloadReportPdf(job);
+    } catch {
+      setExportError('Не удалось сформировать PDF. Попробуйте ещё раз.');
+    } finally {
+      setExporting(null);
+    }
   };
 
+  const resultLink = `${window.location.origin}${window.location.pathname}#job=${job.job_id}`;
+
   const copyLink = async () => {
-    const link = `${window.location.origin}${window.location.pathname}#job=${job.job_id}`;
+    setShowLink(true);
     try {
-      await navigator.clipboard.writeText(link);
-      setCopied('Ссылка скопирована');
+      await navigator.clipboard.writeText(resultLink);
+      setCopied(true);
     } catch {
-      setCopied(link);
+      setCopied(false);
     }
   };
 
@@ -267,19 +251,27 @@ export default function ResultView({ job, videoUrl, onReset }) {
           <RefreshIcon className="h-4 w-4" /> Проверить другое видео
         </button>
         {violations.length > 0 && (
-          <button type="button" className="btn-secondary" onClick={downloadProtocol}>
-            <DownloadIcon className="h-4 w-4" /> Протокол проверки
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => exportPdf('protocol')}
+            disabled={exporting !== null}
+          >
+            {exporting === 'protocol' ? <Spinner className="h-4 w-4" /> : <DownloadIcon className="h-4 w-4" />}
+            Протокол проверки (PDF)
           </button>
         )}
         <button
           type="button"
           className="btn-secondary"
-          onClick={() => downloadBlob(JSON.stringify(job, null, 2), `result_${job.job_id}.json`, 'application/json')}
+          onClick={() => exportPdf('report')}
+          disabled={exporting !== null}
         >
-          <DownloadIcon className="h-4 w-4" /> Ответ API (JSON)
+          {exporting === 'report' ? <Spinner className="h-4 w-4" /> : <DownloadIcon className="h-4 w-4" />}
+          Отчёт анализа (PDF)
         </button>
         <button type="button" className="btn-secondary" onClick={() => window.print()}>
-          <PrintIcon className="h-4 w-4" /> Печать / PDF
+          <PrintIcon className="h-4 w-4" /> Печать
         </button>
         <button type="button" className="btn-ghost" onClick={copyLink}>
           <LinkIcon className="h-4 w-4" /> Ссылка на результат
@@ -294,10 +286,39 @@ export default function ResultView({ job, videoUrl, onReset }) {
           {showJson ? 'Скрыть ответ API' : 'Показать ответ API'}
         </button>
       </div>
-      {copied && (
-        <p className="-mt-3 break-all text-xs text-ink-500 print:hidden" role="status">
-          {copied}
+      {exportError && (
+        <p className="notice-danger -mt-2 print:hidden" role="alert">
+          <AlertIcon className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{exportError}</span>
         </p>
+      )}
+      {showLink && (
+        <div className="card -mt-2 p-3 print:hidden">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <label htmlFor="result-link" className="sr-only">
+              Ссылка на результат
+            </label>
+            <input
+              id="result-link"
+              readOnly
+              value={resultLink}
+              onFocus={(event) => event.target.select()}
+              className="input font-mono text-xs"
+            />
+            <div className="flex shrink-0 items-center justify-between gap-3">
+              <span className="text-xs text-ink-500" role="status">
+                {copied ? 'Скопировано' : 'Скопируйте вручную'}
+              </span>
+              <a href={resultLink} target="_blank" rel="noopener" className="btn-secondary h-9 px-3">
+                Открыть <ExternalIcon className="h-3.5 w-3.5" />
+              </a>
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-ink-500">
+            Ссылка открывает этот результат с решениями проверяющего в этом браузере. На другом устройстве понадобится
+            API-ключ, а результат доступен, пока сервис его хранит.
+          </p>
+        </div>
       )}
 
       {showJson && (
