@@ -7,13 +7,14 @@ from .camera import CameraObstructionRule
 from .catalog import CATALOG, ViolationType, catalog_as_dict
 from .intrusion import UnauthorizedPersonRule
 from .objects import MobilePhoneRule, PersonalBelongingsRule
-from .workplace import CashUnattendedRule, WorkplaceAbandonedRule
+from .workplace import CashUnattendedRule, WorkplaceAbandonedRule, WorkplaceLeftRule
 
 
 def default_rules() -> list[Rule]:
     return [
         CameraObstructionRule(),
         WorkplaceAbandonedRule(),
+        WorkplaceLeftRule(),
         CashUnattendedRule(),
         UnauthorizedPersonRule(),
         MobilePhoneRule(),

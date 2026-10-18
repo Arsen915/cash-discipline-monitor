@@ -85,6 +85,23 @@ WORKPLACE_ABANDONED = ViolationType(
     detects="Рабочее место кассира пустует, в то время как клиент остаётся у стойки.",
 )
 
+WORKPLACE_LEFT = ViolationType(
+    code="WORKPLACE_LEFT",
+    title="Кассир отлучился с рабочего места во время смены",
+    document=CASH_OPERATIONS_RULES,
+    clause="п. 20, п. 22",
+    requirement=(
+        "Ранее принятые наличные деньги хранятся в закрывающихся на ключ устройствах на рабочем "
+        "месте кассового работника; покидать рабочее место до окончания обслуживания клиента не "
+        "допускается. Порядок перерывов и отлучек в течение смены устанавливается внутренними "
+        "документами банка (пересказ п. 20 и п. 22)."
+    ),
+    detects=(
+        "Кассир, работавший на месте, надолго уходит из зоны кассы при отсутствии клиента "
+        "у стойки; указывается время ухода, возвращения и длительность отлучки."
+    ),
+)
+
 CASH_UNATTENDED = ViolationType(
     code="CASH_UNATTENDED",
     title="Ценности оставлены без присмотра на рабочем месте кассира",
@@ -153,6 +170,7 @@ CAMERA_OBSTRUCTION = ViolationType(
 
 CATALOG: tuple[ViolationType, ...] = (
     WORKPLACE_ABANDONED,
+    WORKPLACE_LEFT,
     CASH_UNATTENDED,
     UNAUTHORIZED_PERSON,
     MOBILE_PHONE,

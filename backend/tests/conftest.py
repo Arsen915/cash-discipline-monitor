@@ -58,21 +58,31 @@ def render_scene(path: Path) -> Path:
 
 
 class ColorBlobDetector(Detector):
-    """Зелёные блоки — люди, красные — телефоны. Заменяет нейросеть в юнит-тестах."""
+    """Детектор по цвету вместо нейросети в юнит-тестах.
+
+    Зелёный — человек, красный — телефон, жёлтый — рюкзак (уверенно), синий — «suitcase»
+    с низкой уверенностью (так модель видит принтер), пурпурный — «cell phone» с низкой
+    уверенностью (так модель видит денежный терминал).
+    """
 
     name = "color-blob (test)"
 
     def detect(self, image: np.ndarray) -> list[Detection]:
         b, g, r = (image[..., i].astype(int) for i in range(3))
         result: list[Detection] = []
-        for label, mask in (("person", (g > 180) & (r < 90) & (b < 90)),
-                            ("cell phone", (r > 180) & (g < 90) & (b < 90))):
+        for label, confidence, mask in (
+            ("person", 0.9, (g > 180) & (r < 90) & (b < 90)),
+            ("cell phone", 0.8, (r > 180) & (g < 90) & (b < 90)),
+            ("backpack", 0.8, (r > 180) & (g > 180) & (b < 90)),
+            ("suitcase", 0.45, (b > 180) & (g < 90) & (r < 90)),
+            ("cell phone", 0.5, (r > 180) & (b > 180) & (g < 90)),
+        ):
             contours, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL,
                                            cv2.CHAIN_APPROX_SIMPLE)
             for contour in contours:
                 x, y, w, h = cv2.boundingRect(contour)
                 if w * h >= 60:
-                    result.append(Detection(label, 0.9 if label == "person" else 0.8,
+                    result.append(Detection(label, confidence,
                                             (float(x), float(y), float(x + w), float(y + h))))
         return result
 

@@ -34,11 +34,16 @@ class MobilePhoneRule(Rule):
         cfg = ctx.config
         times = ctx.times
         mask, peak = _hits(ctx, "phones")
+        in_hand = np.array([bool(s.phones_in_hand) for s in ctx.states], dtype=bool)
         events: list[Event] = []
         for start, end in runs(fill_gaps(mask, times, cfg.phone_gap_fill_sec)):
             hit_ids = [i for i in range(start, end) if mask[i]]
             best = float(peak[start:end].max())
-            if len(hit_ids) < cfg.phone_min_hits or best < cfg.phone_min_peak_conf:
+            hand_hits = int(in_hand[start:end].sum())
+            # Телефон в руке кассира — сильный признак: достаточно меньшего числа кадров
+            held = hand_hits >= cfg.phone_min_hits_in_hand and best >= cfg.phone_min_peak_conf_in_hand
+            regular = len(hit_ids) >= cfg.phone_min_hits and best >= cfg.phone_min_peak_conf
+            if not (held or regular):
                 continue
             first = hit_ids[0]
             strongest = sorted(hit_ids[1:], key=lambda i: -peak[i])[:2]
@@ -47,9 +52,10 @@ class MobilePhoneRule(Rule):
             start_t = float(times[first])
             end_t = float(times[hit_ids[-1]] + ctx.step_sec)
             duration = run_duration(times, start, end, ctx.step_sec)
-            confidence = min(0.95, 0.45 + 0.5 * best + 0.05 * (len(hit_ids) >= 5))
+            confidence = min(0.95, 0.45 + 0.5 * best + 0.05 * (len(hit_ids) >= 5) + 0.05 * (hand_hits > 0))
+            where = "в руке кассира" if hand_hits else "в зоне кассира за стойкой"
             description = (
-                f"С {mmss(start_t)} в зоне кассира за стойкой виден мобильный телефон: обнаружен "
+                f"С {mmss(start_t)} {where} виден мобильный телефон: обнаружен "
                 f"на {len(hit_ids)} кадрах в течение {duration:.0f} с (до {mmss(end_t)}), "
                 f"максимальная уверенность детектора {best:.2f}. В кассовый узел разрешено вносить "
                 f"только средства связи без функции фото- и видеофиксации; наличие камеры у "
@@ -69,7 +75,7 @@ class PersonalBelongingsRule(Rule):
         times = ctx.times
         mask, peak = _hits(ctx, "bags")
         events: list[Event] = []
-        for start, end in runs(fill_gaps(mask, times, 2.0)):
+        for start, end in runs(fill_gaps(mask, times, cfg.bag_gap_fill_sec)):
             duration = run_duration(times, start, end, ctx.step_sec)
             hit_ids = [i for i in range(start, end) if mask[i]]
             if duration < cfg.bag_min_sec or len(hit_ids) / (end - start) < cfg.bag_min_fraction:

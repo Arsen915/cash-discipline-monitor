@@ -32,6 +32,7 @@ ProgressCallback = Callable[[float, str], None]
 
 MAX_SAMPLING_STEP_SEC = 1.5
 MAX_EVIDENCE_FRAMES = 3
+SUPERSEDES_WORKPLACE_LEFT = ("CASH_UNATTENDED", "WORKPLACE_ABANDONED")
 
 
 class VideoAnalyzer:
@@ -225,6 +226,11 @@ class VideoAnalyzer:
     def _postprocess(self, events: list[Event]) -> list[Event]:
         """Склейка близких событий одного типа и ограничение их количества."""
         cfg = self.config
+        # Одна отлучка — одно событие: если по ней сработало более конкретное правило
+        # (ценности на столе без присмотра), общую «отлучку во время смены» не дублируем
+        specific = [e for e in events if e.vtype.code in SUPERSEDES_WORKPLACE_LEFT]
+        events = [e for e in events if e.vtype.code != "WORKPLACE_LEFT" or not any(
+            s.start_sec < e.end_sec and e.start_sec < s.end_sec for s in specific)]
         result: list[Event] = []
         by_type: dict[str, list[Event]] = {}
         for event in events:
@@ -283,5 +289,6 @@ class VideoAnalyzer:
             "cashier_side": len(state.cashier_side),
             "phones": len(state.phones),
             "bags": len(state.bags),
+            "fixtures": len(state.fixtures),
             "objects": [f"{o.label}:{o.confidence:.2f}" for o in record.objects],
         }

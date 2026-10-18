@@ -15,9 +15,14 @@ class RuleConfig:
     # --- детектор ---
     person_conf: float = 0.30
     phone_conf: float = 0.30
-    bag_conf: float = 0.35
+    phone_in_hand_conf: float = 0.22      # телефон в руке кассира: допускаем меньшую уверенность
+    bag_conf: float = 0.30
+    equipment_conf: float = 0.30
     phone_labels: tuple[str, ...] = ("cell phone",)
     bag_labels: tuple[str, ...] = ("handbag", "backpack", "suitcase")
+    # Оборудование кассы: принтер детектор часто называет «suitcase», а заодно «microwave»/«tv»;
+    # совпадающие с ним «сумки» и «телефоны» отбрасываются
+    equipment_labels: tuple[str, ...] = ("tv", "laptop", "keyboard", "microwave", "oven", "toaster")
 
     # --- зоны (в единицах «масштаба человека» — медианной диагонали бокса) ---
     workplace_radius: float = 1.4
@@ -33,6 +38,7 @@ class RuleConfig:
     client_gap_fill_sec: float = 1.5
     abandon_client_share: float = 0.6
     unattended_min_sec: float = 6.0
+    shift_absence_min_sec: float = 30.0   # отлучка без клиента у стойки (уход во время смены)
     desk_change_min_fraction: float = 0.08
 
     # --- посторонние в зоне кассира ---
@@ -43,10 +49,20 @@ class RuleConfig:
 
     # --- предметы ---
     phone_min_hits: int = 3
+    phone_min_hits_in_hand: int = 2
     phone_gap_fill_sec: float = 2.0
     phone_min_peak_conf: float = 0.40
-    bag_min_sec: float = 6.0
-    bag_min_fraction: float = 0.4
+    phone_min_peak_conf_in_hand: float = 0.32
+    bag_min_sec: float = 4.0
+    bag_min_fraction: float = 0.35
+    bag_gap_fill_sec: float = 3.0
+
+    # --- неподвижное оборудование (принтер, терминал), похожее на сумку/телефон ---
+    fixture_min_coverage: float = 0.6     # доля пригодных кадров, на которых объект виден
+    fixture_max_shift: float = 0.25       # смещение центра относительно диагонали бокса
+    fixture_keep_bag_conf: float = 0.6    # уверенную неподвижную сумку/рюкзак всё же считаем сумкой
+    fixture_keep_phone_conf: float = 0.7
+    fixture_min_frames: int = 15
 
     # --- итог ---
     min_confidence: float = 0.5
@@ -55,11 +71,11 @@ class RuleConfig:
 
     @property
     def detector_labels(self) -> tuple[str, ...]:
-        return tuple(dict.fromkeys(("person", *self.phone_labels, *self.bag_labels)))
+        return tuple(dict.fromkeys(("person", *self.phone_labels, *self.bag_labels, *self.equipment_labels)))
 
     @property
     def detector_min_conf(self) -> float:
-        return min(self.person_conf, self.phone_conf, self.bag_conf)
+        return min(self.person_conf, self.phone_conf, self.phone_in_hand_conf, self.bag_conf, self.equipment_conf)
 
 
 def load_rule_config(path: Path | None) -> RuleConfig:

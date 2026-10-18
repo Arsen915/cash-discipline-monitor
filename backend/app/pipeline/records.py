@@ -58,3 +58,5 @@ class FrameState:
     client_side: list[int] = field(default_factory=list)    # индексы persons в клиентской зоне
     phones: list[int] = field(default_factory=list)         # индексы objects: телефоны за стойкой
     bags: list[int] = field(default_factory=list)           # индексы objects: сумки за стойкой
+    phones_in_hand: list[int] = field(default_factory=list) # из phones: телефон в руке кассира
+    fixtures: list[int] = field(default_factory=list)       # оборудование, принятое за сумку/телефон

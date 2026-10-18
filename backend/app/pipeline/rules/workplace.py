@@ -1,4 +1,5 @@
-"""Правила про рабочее место кассира: уход во время обслуживания и ценности без присмотра."""
+"""Правила про рабочее место кассира: уход во время обслуживания, отлучка во время смены
+и ценности без присмотра."""
 
 from __future__ import annotations
 
@@ -10,7 +11,7 @@ import numpy as np
 from ..geometry import box_intersection_area, polygon_bbox
 from ..quality import THUMB_WIDTH
 from .base import Event, EvidenceRef, Rule, RuleContext, fill_gaps, mmss, run_duration, runs
-from .catalog import CASH_UNATTENDED, WORKPLACE_ABANDONED
+from .catalog import CASH_UNATTENDED, WORKPLACE_ABANDONED, WORKPLACE_LEFT
 
 
 @dataclass
@@ -96,6 +97,54 @@ class WorkplaceAbandonedRule(Rule):
                 f"({until}); клиент оставался у стойки {absence.client_share:.0%} этого времени, "
                 f"что указывает на незавершённое обслуживание. На кадрах: момент ухода, пустое "
                 f"рабочее место при клиенте у стойки и кассир на месте непосредственно перед уходом."
+            )
+            events.append(Event(self.vtype, start_t, end_t, start_t, confidence, description, evidence))
+        return events
+
+
+class WorkplaceLeftRule(Rule):
+    """Отлучка кассира во время смены: рабочее место долго пустует, клиента у стойки нет.
+
+    Уход при клиенте — это WORKPLACE_ABANDONED; если на пустом столе остались предметы,
+    итоговый список оставляет более конкретный CASH_UNATTENDED (см. VideoAnalyzer._postprocess).
+    """
+
+    vtype = WORKPLACE_LEFT
+
+    def evaluate(self, ctx: RuleContext) -> list[Event]:
+        cfg = ctx.config
+        times = ctx.times
+        events: list[Event] = []
+        for absence in find_absences(ctx, cfg.shift_absence_min_sec):
+            if absence.client_at_departure or absence.client_share >= cfg.abandon_client_share:
+                continue  # это WORKPLACE_ABANDONED
+            start_t = float(times[absence.start])
+            end_t = float(times[absence.end - 1] + ctx.step_sec) if absence.returned else ctx.duration_sec
+            excess = (absence.duration - cfg.shift_absence_min_sec) / (3 * cfg.shift_absence_min_sec)
+            confidence = min(0.85, 0.55 + 0.25 * min(1.0, excess) + 0.05 * (not absence.returned))
+
+            evidence = []
+            if absence.start > 0:
+                evidence.append(EvidenceRef(absence.start - 1,
+                                            _cashier_highlights(ctx, absence.start - 1, "CASHIER")))
+            evidence.append(EvidenceRef(absence.start))
+            if absence.returned:
+                evidence.append(EvidenceRef(absence.end, _cashier_highlights(ctx, absence.end, "CASHIER")))
+            else:
+                evidence.append(EvidenceRef((absence.start + absence.end - 1) // 2))
+
+            if absence.returned:
+                period = f"вернулся в {mmss(end_t)}"
+                frames_note = "кассир перед уходом, пустое рабочее место и момент возвращения"
+            else:
+                period = "до конца записи не вернулся"
+                frames_note = "кассир перед уходом и пустое рабочее место"
+            description = (
+                f"В {mmss(start_t)} кассир ушёл с рабочего места и {period}: отлучка во время смены "
+                f"длилась {absence.duration:.0f} с, клиента у стойки в это время не было "
+                f"({absence.client_share:.0%} времени). Проверьте, был ли это согласованный перерыв "
+                f"или замена и убраны ли перед уходом наличные в закрывающиеся устройства. "
+                f"На кадрах: {frames_note}."
             )
             events.append(Event(self.vtype, start_t, end_t, start_t, confidence, description, evidence))
         return events
